@@ -1,29 +1,22 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
 
 local Window = Rayfield:CreateWindow({
-   Name = "Custom Cheat Menu",
-   LoadingTitle = "Načítání...",
-   LoadingSubtitle = "by Gemini",
-   ConfigurationSaving = {
-      Enabled = true,
-      FolderName = "GeminiCheats",
-      FileName = "Config"
-   }
+    Name = "Custom Cheat Menu",
+    LoadingTitle = "Načítání...",
+    LoadingSubtitle = "by Gemini",
+    ConfigurationSaving = { Enabled = true, FolderName = "GeminiCheats", FileName = "Config" }
 })
 
 local config = {
-    aimbot = true,
-    silentAim = true,
-    esp = true,
-    smoothness = 0.01, -- Nejnižší možná plynulost (okamžitý snap)
-    aimFOV = 150,
-    silentFOV = 100,
-    teamCheck = true
+    aimbot = false, silentAim = false, esp = false,
+    smoothness = 0.1, aimFOV = 150, teamCheck = true
 }
-
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
 
 -- FUNKCE PRO HLEDÁNÍ CÍLE
 local function getClosestPlayer(maxFOV)
@@ -32,7 +25,6 @@ local function getClosestPlayer(maxFOV)
 
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            -- Team Check
             if config.teamCheck and player.Team == LocalPlayer.Team then continue end
             
             local pos, onScreen = Camera:WorldToViewportPoint(player.Character.HumanoidRootPart.Position)
@@ -48,94 +40,44 @@ local function getClosestPlayer(maxFOV)
     return closest
 end
 
--- ZÁLOŽKA: MAIN (AIM)
-local MainTab = Window:CreateTab("Main", 4483362458) -- Ikona terče
-
-MainTab:CreateToggle({
-   Name = "Aimbot",
-   CurrentValue = false,
-   Callback = function(Value) config.aimbot = Value end,
-})
-
-MainTab:CreateToggle({
-   Name = "Silent Aim",
-   CurrentValue = false,
-   Callback = function(Value) config.silentAim = Value end,
-})
-
-MainTab:CreateSlider({
-   Name = "Smoothness (Rychlost)",
-   Range = {0.01, 1},
-   Increment = 0.01,
-   Suffix = "ms",
-   CurrentValue = 0.01,
-   Callback = function(Value) config.smoothness = Value end,
-})
-
-MainTab:CreateSlider({
-   Name = "Aimbot FOV",
-   Range = {10, 500},
-   Increment = 10,
-   Suffix = "px",
-   CurrentValue = 150,
-   Callback = function(Value) config.aimFOV = Value end,
-})
-
--- ZÁLOŽKA: VISUALS
-local VisualTab = Window:CreateTab("Visuals", 4483345998)
-
-VisualTab:CreateToggle({
-   Name = "ESP Boxes",
-   CurrentValue = false,
-   Callback = function(Value) config.esp = Value end,
-})
-
-VisualTab:CreateToggle({
-   Name = "Team Check",
-   CurrentValue = true,
-   Callback = function(Value) config.teamCheck = Value end,
-})
+-- ZÁLOŽKA MAIN
+local MainTab = Window:CreateTab("Main", 4483362458)
+MainTab:CreateToggle({Name = "Aimbot", Callback = function(v) config.aimbot = v end})
+MainTab:CreateToggle({Name = "Silent Aim", Callback = function(v) config.silentAim = v end})
+MainTab:CreateSlider({Name = "Smoothness", Range = {0.01, 1}, Increment = 0.05, CurrentValue = 0.1, Callback = function(v) config.smoothness = v end})
 
 -- HLAVNÍ LOOP
-game:GetService("RunService").RenderStepped:Connect(function()
-    local target = getClosestPlayer(math.max(config.aimFOV, config.silentFOV))
+RunService.RenderStepped:Connect(function(dt)
+    local target = getClosestPlayer(config.aimFOV)
 
-    if target then
-        -- AIMBOT (Snap)
-        if config.aimbot then
-            Camera.CFrame = Camera.CFrame:Lerp(CFrame.lookAt(Camera.CFrame.Position, target.Position), config.smoothness)
-        end
-
-        -- SILENT AIM (Při kliknutí)
-        if config.silentAim and game:GetService("UserInputService"):IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
-            Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, target.Position)
-        end
+    -- AIMBOT (Plynulé míření)
+    if target and config.aimbot then
+        local lookCFrame = CFrame.lookAt(Camera.CFrame.Position, target.Position)
+        Camera.CFrame = Camera.CFrame:Lerp(lookCFrame, config.smoothness * (dt * 60))
     end
 
-    -- JEDNODUCHÉ ESP
+    -- SILENT AIM (Okamžitý snap při stisku)
+    if target and config.silentAim and UserInputService:IsMouseButtonDown(Enum.UserInputType.MouseButton1) then
+        Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, target.Position)
+    end
+
+    -- OPTIMALIZOVANÉ ESP
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character then
             local box = player.Character:FindFirstChild("ESP_Box")
             if config.esp then
                 if not box then
-                    local b = Instance.new("BoxHandleAdornment")
-                    b.Name = "ESP_Box"
-                    b.AlwaysOnTop = true
-                    b.Adornee = player.Character
-                    b.Color3 = (player.Team == LocalPlayer.Team) and Color3.new(0, 1, 0) or Color3.new(1, 0, 0)
-                    b.Size = player.Character:GetExtentsSize()
-                    b.Transparency = 0.7
-                    b.Parent = player.Character
+                    box = Instance.new("BoxHandleAdornment")
+                    box.Name = "ESP_Box"
+                    box.AlwaysOnTop = true
+                    box.Adornee = player.Character
+                    box.Parent = player.Character
                 end
+                box.Size = player.Character:GetExtentsSize()
+                box.Color3 = (player.Team == LocalPlayer.Team) and Color3.new(0, 1, 0) or Color3.new(1, 0, 0)
             elseif box then
                 box:Destroy()
             end
         end
     end
 end)
-
-Rayfield:Notify({
-   Title = "Script Načten!",
-   Content = "Menu otevřeš v ovládacím panelu Rayfield.",
-   Duration = 5,
-})
