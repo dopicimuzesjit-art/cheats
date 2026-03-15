@@ -1,77 +1,68 @@
--- Ošetření chyby při načítání knihovny
+-- VYČIŠTĚNÍ
+if getgenv().Rayfield then getgenv().Rayfield:Destroy() end
+
+-- NAČTENÍ KNIHOVNY
 local success, Rayfield = pcall(function() 
     return loadstring(game:HttpGet('https://sirius.menu/rayfield'))() 
 end)
 
-if not success then
-    warn("RAYFIELD SE NENAČETL! Zkontroluj internet nebo executor.")
-    return
-end
+if not success then return warn("Chyba při načítání knihovny!") end
 
--- Pokračování zbytku scriptu...
-local Window = Rayfield:CreateWindow({
-   Name = "SAFE MODE MENU",
-   LoadingTitle = "Načítání...",
-   LoadingSubtitle = "Vše běží v pořádku",
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
-local Window = Rayfield:CreateWindow({Name = "PREMIUM RIVALS CHEAT", LoadingTitle = "Loading...", LoadingSubtitle = "by Gemini"})
+local Window = Rayfield:CreateWindow({Name = "PREMIUM RIVALS - STABLE", LoadingTitle = "Loading...", LoadingSubtitle = "by Gemini"})
 
--- KONFIGURACE
-local config = { silentAim = false, noRecoil = false, noSpread = false, fov = 150, teamCheck = true }
+-- CONFIG
+local config = { aimbot = false, esp = false, fov = 150, smoothness = 0.1 }
 local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
+local RunService = game:GetService("RunService")
 local Camera = workspace.CurrentCamera
 
--- SILENT AIM & RECOIL HOOK
-local mt = getrawmetatable(game)
-local old = mt.__namecall
-setreadonly(mt, false)
-
-mt.__namecall = newcclosure(function(self, ...)
-    local method = getnamecallmethod()
-    local args = {...}
-    
-    -- Silent Aim (přesměrování střelby)
-    if config.silentAim and (method == "FindPartOnRay" or method == "FindPartOnRayWithIgnoreList") then
-        local target = nil
-        local dist = config.fov
-        for _, p in pairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") then
-                if config.teamCheck and p.Team == LocalPlayer.Team then continue end
-                local pos, onScreen = Camera:WorldToViewportPoint(p.Character.Head.Position)
-                if onScreen then
-                    local d = (Vector2.new(pos.X, pos.Y) - Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)).Magnitude
-                    if d < dist then target = p.Character.Head dist = d end
-                end
+-- FUNKCE PRO HLEDÁNÍ CÍLE (Bezpečnější)
+local function getClosestPlayer()
+    local closest = nil
+    local shortestDistance = config.fov
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= Players.LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local pos, onScreen = Camera:WorldToViewportPoint(player.Character.HumanoidRootPart.Position)
+            if onScreen then
+                local distance = (Vector2.new(pos.X, pos.Y) - Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)).Magnitude
+                if distance < shortestDistance then closest = player.Character.HumanoidRootPart shortestDistance = distance end
             end
         end
-        if target then
-            args[1] = Ray.new(args[1].Origin, (target.Position - args[1].Origin).Unit * 1000)
-        end
     end
-    return old(self, unpack(args))
-end)
-setreadonly(mt, true)
-
--- NO RECOIL / SPREAD (Hook na zbraň)
-game:GetService("RunService").RenderStepped:Connect(function()
-    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Gun") then
-        local gun = LocalPlayer.Character.Gun
-        if config.noRecoil then
-            gun.Recoil.Value = Vector3.new(0, 0, 0) -- Vynulování zpětného rázu
-        end
-        if config.noSpread then
-            gun.Spread.Value = 0 -- Vynulování rozptylu
-        end
-    end
-end)
+    return closest
+end
 
 -- MENU
 local MainTab = Window:CreateTab("Main", 4483362458)
-MainTab:CreateToggle({Name = "Silent Aim (Hitbox Lock)", Callback = function(V) config.silentAim = V end})
-MainTab:CreateToggle({Name = "No Recoil", Callback = function(V) config.noRecoil = V end})
-MainTab:CreateToggle({Name = "No Spread", Callback = function(V) config.noSpread = V end})
-MainTab:CreateSlider({Name = "FOV Size", Range = {10, 500}, CurrentValue = 150, Callback = function(V) config.fov = V end})
-MainTab:CreateToggle({Name = "Team Check", CurrentValue = true, Callback = function(V) config.teamCheck = V end})
+MainTab:CreateToggle({Name = "Aimbot", Callback = function(v) config.aimbot = v end})
+MainTab:CreateToggle({Name = "ESP", Callback = function(v) config.esp = v end})
+MainTab:CreateSlider({Name = "FOV", Range = {50, 500}, CurrentValue = 150, Callback = function(v) config.fov = v end})
 
-Rayfield:Notify({Title = "Aktivováno", Content = "Silent Aim a Gun Mods připraveny.", Duration = 5})
+-- SMYČKA (Logika)
+RunService.RenderStepped:Connect(function()
+    if config.aimbot then
+        local target = getClosestPlayer()
+        if target then
+            Camera.CFrame = Camera.CFrame:Lerp(CFrame.lookAt(Camera.CFrame.Position, target.Position), config.smoothness)
+        end
+    end
+    
+    for _, player in pairs(Players:GetPlayers()) do
+        if player.Character then
+            local box = player.Character:FindFirstChild("ESP_Box")
+            if config.esp and not box then
+                local b = Instance.new("BoxHandleAdornment")
+                b.Name = "ESP_Box"
+                b.AlwaysOnTop = true
+                b.Adornee = player.Character
+                b.Color3 = Color3.new(1, 0, 0)
+                b.Size = player.Character:GetExtentsSize()
+                b.Parent = player.Character
+            elseif not config.esp and box then
+                box:Destroy()
+            end
+        end
+    end
+end)
+
+Rayfield:Notify({Title = "Systém", Content = "Script běží stabilně.", Duration = 3})
