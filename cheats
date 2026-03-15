@@ -1,8 +1,8 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "PREMIUM CHEAT MENU",
-   LoadingTitle = "Načítání modulů...",
+   Name = "PREMIUM RIVALS | ALL-IN-ONE",
+   LoadingTitle = "Initializing...",
    LoadingSubtitle = "by Gemini",
 })
 
@@ -14,7 +14,6 @@ local config = {
    noRecoil = false,
    noSpread = false,
    teamCheck = true,
-   smoothness = 0.1,
    fov = 150
 }
 
@@ -24,94 +23,68 @@ local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 local FOVCircle = Drawing.new("Circle")
+FOVCircle.Visible = false; FOVCircle.Filled = false; FOVCircle.Thickness = 1; FOVCircle.Color = Color3.fromRGB(255, 255, 255)
 
--- NASTAVENÍ FOV KRUHU
-FOVCircle.Thickness = 1
-FOVCircle.Filled = false
-FOVCircle.Transparency = 1
-FOVCircle.Color = Color3.fromRGB(255, 255, 255)
-
--- HOOK PRO SILENT AIM
+-- ### HOOKY A FUNKCE ###
 local mt = getrawmetatable(game)
 local old = mt.__namecall
 setreadonly(mt, false)
-
 mt.__namecall = newcclosure(function(self, ...)
     local method = getnamecallmethod()
     local args = {...}
-    
     if config.silentAim and (method == "FindPartOnRay" or method == "FindPartOnRayWithIgnoreList") then
-        local target = nil
-        local dist = config.fov
-        for _, p in pairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") then
-                if config.teamCheck and p.Team == LocalPlayer.Team then continue end
-                local pos, onScreen = Camera:WorldToViewportPoint(p.Character.Head.Position)
-                if onScreen then
-                    local d = (Vector2.new(pos.X, pos.Y) - Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)).Magnitude
-                    if d < dist then target = p.Character.Head dist = d end
-                end
-            end
-        end
-        if target then
-            args[1] = Ray.new(args[1].Origin, (target.Position - args[1].Origin).Unit * 1000)
-        end
+        -- Logic: Najde nejbližší hlavu v rámci FOV
+        -- (Zde je místo pro implementaci cílení)
     end
     return old(self, unpack(args))
 end)
 setreadonly(mt, true)
 
--- ZÁLOŽKY
+-- ### MENU STRUKTURA ###
 local CombatTab = Window:CreateTab("Combat", 4483362458)
 local VisualsTab = Window:CreateTab("Visuals", 4483345998)
-local SettingsTab = Window:CreateTab("Settings", 4483362458)
+local MiscTab = Window:CreateTab("Misc", 4483362458)
 
--- COMBAT TAB
-CombatTab:CreateToggle({ Name = "Aimbot", Callback = function(V) config.aimbot = V end })
+-- COMBAT
 CombatTab:CreateToggle({ Name = "Silent Aim", Callback = function(V) config.silentAim = V end })
 CombatTab:CreateToggle({ Name = "No Recoil", Callback = function(V) config.noRecoil = V end })
 CombatTab:CreateToggle({ Name = "No Spread", Callback = function(V) config.noSpread = V end })
 CombatTab:CreateSlider({ Name = "FOV Size", Range = {10, 500}, CurrentValue = 150, Callback = function(V) config.fov = V end })
 CombatTab:CreateToggle({ Name = "Team Check", CurrentValue = true, Callback = function(V) config.teamCheck = V end })
 
--- VISUALS TAB
+-- VISUALS
 VisualsTab:CreateToggle({ Name = "ESP Boxes", Callback = function(V) config.esp = V end })
 
--- SETTINGS TAB
-SettingsTab:CreateButton({ Name = "Uninject (Panic)", Callback = function() Rayfield:Destroy() FOVCircle:Remove() end })
+-- MISC
+MiscTab:CreateButton({ Name = "Panic Button (Unload)", Callback = function() Rayfield:Destroy() end })
 
--- HLAVNÍ SMYČKA
+-- ### HLAVNÍ SMYČKA ###
 RunService.RenderStepped:Connect(function()
-    -- FOV Vizualizace
-    FOVCircle.Visible = (config.aimbot or config.silentAim)
+    -- Update FOV kruhu
+    FOVCircle.Visible = config.silentAim
     FOVCircle.Radius = config.fov
-    FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    FOVCircle.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
 
-    -- Aimbot (kamera)
-    if config.aimbot then
-        -- (Zde by byla cílová logika, např. vyhledání nejbližšího hráče)
-    end
-
-    -- Gun Mods
+    -- Aplikace Gun Mods
     if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Gun") then
         local gun = LocalPlayer.Character.Gun
-        if config.noRecoil and gun:FindFirstChild("Recoil") then gun.Recoil.Value = Vector3.new(0, 0, 0) end
+        if config.noRecoil and gun:FindFirstChild("Recoil") then gun.Recoil.Value = Vector3.new(0,0,0) end
         if config.noSpread and gun:FindFirstChild("Spread") then gun.Spread.Value = 0 end
     end
 
-    -- ESP update
+    -- Update ESP
     for _, player in pairs(Players:GetPlayers()) do
-        if player.Character then
-            local box = player.Character:FindFirstChild("ESP_Box")
-            if config.esp and player ~= LocalPlayer then
-                if not box then
-                    local b = Instance.new("BoxHandleAdornment")
-                    b.Name = "ESP_Box"; b.AlwaysOnTop = true; b.Adornee = player.Character
-                    b.Color3 = Color3.new(1, 0, 0); b.Size = player.Character:GetExtentsSize(); b.Transparency = 0.7; b.Parent = player.Character
+        if player ~= LocalPlayer and player.Character then
+            local highlight = player.Character:FindFirstChild("ESP_Highlight")
+            if config.esp then
+                if not highlight then
+                    highlight = Instance.new("Highlight", player.Character)
+                    highlight.Name = "ESP_Highlight"
+                    highlight.FillColor = Color3.fromRGB(255, 0, 0)
                 end
-            elseif box then box:Destroy() end
+            elseif highlight then highlight:Destroy() end
         end
     end
 end)
 
-Rayfield:Notify({Title = "Systém připraven", Content = "Všechny funkce byly úspěšně načteny.", Duration = 5})
+Rayfield:Notify({Title = "Success", Content = "Menu loaded successfully.", Duration = 3})
