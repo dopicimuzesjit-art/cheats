@@ -1,144 +1,98 @@
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+   Name = "PREMIUM CHEAT MENU",
+   LoadingTitle = "Načítání...",
+   LoadingSubtitle = "by Gemini",
+})
+
+-- CONFIG
+local config = {
+    aimbot = false,
+    silentAim = false,
+    esp = false,
+    smoothness = 0.01,
+    fov = 150,
+    teamCheck = true
+}
+
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
-local Mouse = LocalPlayer:GetMouse()
 local Camera = workspace.CurrentCamera
-
--- CONFIGURATION
-local config = {
-    aimbot = true,
-    silentAim = true,
-    wallhack = false,
-    esp = true,
-    fov = 150,
-    smoothness = 0.15,
-    menuKey = Enum.KeyCode.Insert
-}
-
--- FOV CIRCLE
 local FOVCircle = Drawing.new("Circle")
-FOVCircle.Thickness = 2
-FOVCircle.Color = Color3.fromRGB(0, 255, 255)
-FOVCircle.Filled = false
-FOVCircle.Transparency = 0.7
-FOVCircle.Visible = true
 
--- POMOCNÁ FUNKCE PRO NEJBLIŽŠÍHO HRÁČE
-local function getClosestPlayer()
-    local closest = nil
+-- FUNKCE PRO PANIC BUTTON
+local function panicMode()
+    Rayfield:Destroy() -- Zničí GUI
+    FOVCircle:Remove() -- Smaže FOV kruh
+    -- Zastavení všech smyček (využitím globální proměnné)
+    getgenv().scriptRunning = false 
+end
+
+getgenv().scriptRunning = true -- Globální přepínač pro běh scriptu
+
+-- ZÁLOŽKY
+local MainTab = Window:CreateTab("Main", 4483362458)
+local VisualsTab = Window:CreateTab("Visuals", 4483345998)
+local SettingsTab = Window:CreateTab("Settings", 4483362458)
+
+-- MAIN TAB
+MainTab:CreateToggle({ Name = "Aimbot", Callback = function(V) config.aimbot = V end })
+MainTab:CreateToggle({ Name = "Silent Aim", Callback = function(V) config.silentAim = V end })
+MainTab:CreateSlider({ Name = "Smoothness", Range = {0.01, 1}, Increment = 0.01, CurrentValue = 0.01, Callback = function(V) config.smoothness = V end })
+MainTab:CreateSlider({ Name = "FOV Size", Range = {10, 800}, Increment = 10, CurrentValue = 150, Callback = function(V) config.fov = V end })
+
+-- VISUALS TAB
+VisualsTab:CreateToggle({ Name = "ESP Boxes", Callback = function(V) config.esp = V end })
+VisualsTab:CreateToggle({ Name = "Team Check", CurrentValue = true, Callback = function(V) config.teamCheck = V end })
+
+-- SETTINGS TAB (ZDE JE PANIC BUTTON)
+SettingsTab:CreateButton({
+    Name = "PANIC BUTTON (Uninject)",
+    Callback = function() panicMode() end,
+})
+
+-- HLAVNÍ LOOP
+RunService.RenderStepped:Connect(function()
+    if not getgenv().scriptRunning then return end -- Pokud je panic, nic se neděje
+
+    -- FOV Kruh
+    FOVCircle.Visible = config.aimbot or config.silentAim
+    FOVCircle.Radius = config.fov
+    FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+
+    local target = nil
     local shortestDistance = config.fov
 
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            if config.teamCheck and player.Team == LocalPlayer.Team then continue end
+            
             local pos, onScreen = Camera:WorldToViewportPoint(player.Character.HumanoidRootPart.Position)
             if onScreen then
                 local distance = (Vector2.new(pos.X, pos.Y) - Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)).Magnitude
                 if distance < shortestDistance then
-                    closest = player.Character.HumanoidRootPart
+                    target = player.Character.HumanoidRootPart
                     shortestDistance = distance
                 end
             end
         end
     end
-    return closest
-end
-
--- GUI (MODERNÍ MENU)
-local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
-local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.Size = UDim2.new(0, 220, 0, 320)
-MainFrame.Position = UDim2.new(0.1, 0, 0.1, 0)
-MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-MainFrame.BorderSizePixel = 0
-MainFrame.Visible = true
-MainFrame.Active = true
-MainFrame.Draggable = true
-
-local Title = Instance.new("TextLabel", MainFrame)
-Title.Size = UDim2.new(1, 0, 0, 40)
-Title.Text = "GITHUB CHEAT MENU"
-Title.TextColor3 = Color3.new(1, 1, 1)
-Title.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-
-local function createToggle(name, yPos, configKey)
-    local btn = Instance.new("TextButton", MainFrame)
-    btn.Size = UDim2.new(0.9, 0, 0, 30)
-    btn.Position = UDim2.new(0.05, 0, 0, yPos)
-    btn.Text = name .. ": " .. tostring(config[configKey])
-    btn.BackgroundColor3 = config[configKey] and Color3.fromRGB(0, 120, 0) or Color3.fromRGB(120, 0, 0)
-    
-    btn.MouseButton1Click:Connect(function()
-        config[configKey] = not config[configKey]
-        btn.Text = name .. ": " .. tostring(config[configKey])
-        btn.BackgroundColor3 = config[configKey] and Color3.fromRGB(0, 120, 0) or Color3.fromRGB(120, 0, 0)
-    end)
-end
-
-local function createAdjuster(name, yPos, configKey, step)
-    local label = Instance.new("TextLabel", MainFrame)
-    label.Size = UDim2.new(0.4, 0, 0, 30)
-    label.Position = UDim2.new(0.05, 0, 0, yPos)
-    label.Text = name .. ": " .. tostring(config[configKey])
-    label.TextColor3 = Color3.new(1, 1, 1)
-    label.BackgroundTransparency = 1
-
-    local btnPlus = Instance.new("TextButton", MainFrame)
-    btnPlus.Size = UDim2.new(0.2, 0, 0, 30)
-    btnPlus.Position = UDim2.new(0.75, 0, 0, yPos)
-    btnPlus.Text = "+"
-    
-    local btnMinus = Instance.new("TextButton", MainFrame)
-    btnMinus.Size = UDim2.new(0.2, 0, 0, 30)
-    btnMinus.Position = UDim2.new(0.5, 0, 0, yPos)
-    btnMinus.Text = "-"
-
-    btnPlus.MouseButton1Click:Connect(function()
-        config[configKey] = math.floor((config[configKey] + step) * 100) / 100
-        label.Text = name .. ": " .. tostring(config[configKey])
-    end)
-    btnMinus.MouseButton1Click:Connect(function()
-        config[configKey] = math.max(0, math.floor((config[configKey] - step) * 100) / 100)
-        label.Text = name .. ": " .. tostring(config[configKey])
-    end)
-end
-
-createToggle("Aimbot", 50, "aimbot")
-createToggle("Silent Aim", 90, "silentAim")
-createToggle("ESP", 130, "esp")
-createAdjuster("Smooth", 170, "smoothness", 0.05)
-createAdjuster("FOV", 210, "fov", 10)
-
--- PŘEPÍNÁNÍ KLÁVESOU INSERT
-UserInputService.InputBegan:Connect(function(input)
-    if input.KeyCode == config.menuKey then
-        MainFrame.Visible = not MainFrame.Visible
-    end
-end)
-
--- MAIN LOGIC
-RunService.RenderStepped:Connect(function()
-    FOVCircle.Position = Vector2.new(Mouse.X, Mouse.Y + 36)
-    FOVCircle.Radius = config.fov
-    FOVCircle.Visible = config.aimbot or config.silentAim
-
-    local target = getClosestPlayer()
 
     if target then
-        -- AIMBOT (Plynulý pohyb)
         if config.aimbot then
             Camera.CFrame = Camera.CFrame:Lerp(CFrame.lookAt(Camera.CFrame.Position, target.Position), config.smoothness)
         end
-
-        -- SILENT AIM (Zaměří při kliknutí)
         if config.silentAim and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
             Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, target.Position)
         end
     end
 
-    -- ESP SYSTÉM
+    -- ESP ČIŠTĚNÍ
     for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character then
+        if player.Character then
             local box = player.Character:FindFirstChild("ESP_Box")
             if config.esp then
                 if not box then
@@ -146,7 +100,7 @@ RunService.RenderStepped:Connect(function()
                     b.Name = "ESP_Box"
                     b.AlwaysOnTop = true
                     b.Adornee = player.Character
-                    b.Color3 = Color3.new(0, 1, 1)
+                    b.Color3 = Color3.new(1, 0, 0)
                     b.Size = player.Character:GetExtentsSize()
                     b.Transparency = 0.7
                     b.Parent = player.Character
