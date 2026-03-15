@@ -1,3 +1,18 @@
+-- Ošetření chyby při načítání knihovny
+local success, Rayfield = pcall(function() 
+    return loadstring(game:HttpGet('https://sirius.menu/rayfield'))() 
+end)
+
+if not success then
+    warn("RAYFIELD SE NENAČETL! Zkontroluj internet nebo executor.")
+    return
+end
+
+-- Pokračování zbytku scriptu...
+local Window = Rayfield:CreateWindow({
+   Name = "SAFE MODE MENU",
+   LoadingTitle = "Načítání...",
+   LoadingSubtitle = "Vše běží v pořádku",
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Window = Rayfield:CreateWindow({Name = "PREMIUM RIVALS CHEAT", LoadingTitle = "Loading...", LoadingSubtitle = "by Gemini"})
 
