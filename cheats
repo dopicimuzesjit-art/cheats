@@ -1,0 +1,197 @@
+-- Configuration
+local config = {
+    aimbot = true,
+    wallhack = true,
+    esp = true,
+    softaim = true,
+    silentAim = true,
+    aimbotFOV = 100,
+    softaimFOV = 100,
+    softaimSmoothness = 0.5,
+}
+
+-- Aimbot
+local aimbot = {}
+aimbot.fov = config.aimbotFOV
+aimbot.smoothness = 0
+local function aimAtCharacter(targetCharacter)
+    local target = targetCharacter.HumanoidRootPart
+    if target then
+        local direction = (target.Position - game.Players.LocalPlayer.Character.HumanoidRootPart.Position).Unit
+        game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.lookAt(game.Players.LocalPlayer.Character.HumanoidRootPart.Position, target.Position)
+    end
+end
+
+-- Wallhack
+local wallhack = {}
+local function wallhackFunction()
+    for _, player in pairs(game.Players:GetPlayers()) do
+        if player ~= game.Players.LocalPlayer then
+            local character = player.Character
+            if character then
+                for _, part in pairs(character:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        part.Transparency = 0.5
+                    end
+                end
+            end
+        end
+    end
+end
+
+-- ESP
+local esp = {}
+local function espFunction()
+    for _, player in pairs(game.Players:GetPlayers()) do
+        if player ~= game.Players.LocalPlayer then
+            local character = player.Character
+            if character then
+                local espBox = Instance.new("BoxHandleAdornment")
+                espBox.Size = Vector3.new(2, 2, 2)
+                espBox.Transparency = 0.5
+                espBox.Color = Color3.new(1, 0, 0)
+                espBox.Parent = character
+            end
+        end
+    end
+end
+
+-- Soft Aim
+local softaim = {}
+softaim.fov = config.softaimFOV
+softaim.smoothness = config.softaimSmoothness
+local function softAimAtCharacter(targetCharacter)
+    local target = targetCharacter.HumanoidRootPart
+    if target then
+        local direction = (target.Position - game.Players.LocalPlayer.Character.HumanoidRootPart.Position).Unit
+        game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame:Lerp(CFrame.lookAt(game.Players.LocalPlayer.Character.HumanoidRootPart.Position, target.Position), softaim.smoothness)
+    end
+end
+
+-- Silent Aim
+local silentAim = {}
+local function silentAimAtCharacter(targetCharacter)
+    local target = targetCharacter.HumanoidRootPart
+    if target then
+        local direction = (target.Position - game.Players.LocalPlayer.Character.HumanoidRootPart.Position).Unit
+        game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.lookAt(game.Players.LocalPlayer.Character.HumanoidRootPart.Position, target.Position)
+        game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 0)
+    end
+end
+
+-- Main Loop
+game:GetService("RunService").RenderStepped:Connect(function()
+    if config.aimbot then
+        for _, player in pairs(game.Players:GetPlayers()) do
+            if player ~= game.Players.LocalPlayer then
+                local character = player.Character
+                if character then
+                    aimAtCharacter(character)
+                end
+            end
+        end
+    end
+
+    if config.wallhack then
+        wallhackFunction()
+    end
+
+    if config.esp then
+        espFunction()
+    end
+
+    if config.softaim then
+        for _, player in pairs(game.Players:GetPlayers()) do
+            if player ~= game.Players.LocalPlayer then
+                local character = player.Character
+                if character then
+                    softAimAtCharacter(character)
+                end
+            end
+        end
+    end
+
+    if config.silentAim then
+        for _, player in pairs(game.Players:GetPlayers()) do
+            if player ~= game.Players.LocalPlayer then
+                local character = player.Character
+                if character then
+                    silentAimAtCharacter(character)
+                end
+            end
+        end
+    end
+end)
+
+-- Configuration Menu
+local function drawMenu()
+    local menu = Instance.new("ScreenGui")
+    menu.Parent = game.StarterGui
+
+    local aimbotButton = Instance.new("TextButton")
+    aimbotButton.Text = "Aimbot: " .. tostring(config.aimbot)
+    aimbotButton.Parent = menu
+
+    local wallhackButton = Instance.new("TextButton")
+    wallhackButton.Text = "Wallhack: " .. tostring(config.wallhack)
+    wallhackButton.Parent = menu
+
+    local espButton = Instance.new("TextButton")
+    espButton.Text = "ESP: " .. tostring(config.esp)
+    espButton.Parent = menu
+
+    local softaimButton = Instance.new("TextButton")
+    softaimButton.Text = "Soft Aim: " .. tostring(config.softaim)
+    softaimButton.Parent = menu
+
+    local silentAimButton = Instance.new("TextButton")
+    silentAimButton.Text = "Silent Aim: " .. tostring(config.silentAim)
+    silentAimButton.Parent = menu
+
+    local fovSlider = Instance.new("Slider")
+    fovSlider.MinValue = 10
+    fovSlider.MaxValue = 200
+    fovSlider.Value = config.aimbotFOV
+    fovSlider.Parent = menu
+
+    local smoothnessSlider = Instance.new("Slider")
+    smoothnessSlider.MinValue = 0
+    smoothnessSlider.MaxValue = 1
+    smoothnessSlider.Value = config.softaimSmoothness
+    smoothnessSlider.Parent = menu
+
+    aimbotButton.MouseButton1Click:Connect(function()
+        config.aimbot = not config.aimbot
+        aimbotButton.Text = "Aimbot: " .. tostring(config.aimbot)
+    end)
+
+    wallhackButton.MouseButton1Click:Connect(function()
+        config.wallhack = not config.wallhack
+        wallhackButton.Text = "Wallhack: " .. tostring(config.wallhack)
+    end)
+
+    espButton.MouseButton1Click:Connect(function()
+        config.esp = not config.esp
+        espButton.Text = "ESP: " .. tostring(config.esp)
+    end)
+
+    softaimButton.MouseButton1Click:Connect(function()
+        config.softaim = not config.softaim
+        softaimButton.Text = "Soft Aim: " .. tostring(config.softaim)
+    end)
+
+    silentAimButton.MouseButton1Click:Connect(function()
+        config.silentAim = not config.silentAim
+        silentAimButton.Text = "Silent Aim: " .. tostring(config.silentAim)
+    end)
+
+    fovSlider:GetPropertyChangedSignal("Value"):Connect(function()
+        config.aimbotFOV = fovSlider.Value
+    end)
+
+    smoothnessSlider:GetPropertyChangedSignal("Value"):Connect(function()
+        config.softaimSmoothness = smoothnessSlider.Value
+    end)
+end
+
+drawMenu(
