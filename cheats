@@ -1,25 +1,32 @@
---[[ 
-    OPTIMALIZOVANÝ SCRIPT 
-    Poznámka: Pro nejlepší funkčnost přejmenuj soubor na .lua
-]]
-
-local config = {
-    aimbot = true,
-    wallhack = true,
-    esp = true,
-    aimbotFOV = 100,
-    smoothness = 0.2 -- Nižší číslo = plynulejší pohyb
-}
-
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
--- Pomocná funkce pro nalezení nejbližšího hráče
-local function getClosestPlayer()
+-- CONFIGURATION
+local config = {
+    aimbot = true,
+    silentAim = true,
+    wallhack = false,
+    esp = true,
+    aimbotFOV = 150,
+    silentAimFOV = 100,
+    smoothness = 0.15,
+    menuKey = Enum.KeyCode.Insert
+}
+
+-- FOV CIRCLE (Vizuální kruh pro Aimbot)
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Thickness = 2
+FOVCircle.Color = Color3.fromRGB(255, 255, 255)
+FOVCircle.Filled = false
+FOVCircle.Transparency = 0.5
+
+-- POMOCNÉ FUNKCE
+local function getClosestPlayer(maxFOV)
     local closest = nil
-    local shortestDistance = config.aimbotFOV
+    local shortestDistance = maxFOV
 
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
@@ -36,46 +43,100 @@ local function getClosestPlayer()
     return closest
 end
 
--- Hlavní smyčka
+-- GUI TVORBA (MODERNÍ MENU)
+local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
+local MainFrame = Instance.new("Frame", ScreenGui)
+MainFrame.Size = UDim2.new(0, 200, 0, 250)
+MainFrame.Position = UDim2.new(0.1, 0, 0.1, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+MainFrame.BorderSizePixel = 2
+MainFrame.Visible = true
+MainFrame.Active = true
+MainFrame.Draggable = true
+
+local Title = Instance.new("TextLabel", MainFrame)
+Title.Size = UDim2.new(1, 0, 0, 30)
+Title.Text = "PREMIUM CHEATS"
+Title.TextColor3 = Color3.new(1, 1, 1)
+Title.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+
+local function createToggleButton(name, yPos, configKey)
+    local btn = Instance.new("TextButton", MainFrame)
+    btn.Size = UDim2.new(0.9, 0, 0, 30)
+    btn.Position = UDim2.new(0.05, 0, 0, yPos)
+    btn.Text = name .. ": " .. tostring(config[configKey])
+    btn.BackgroundColor3 = config[configKey] and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(150, 0, 0)
+    
+    btn.MouseButton1Click:Connect(function()
+        config[configKey] = not config[configKey]
+        btn.Text = name .. ": " .. tostring(config[configKey])
+        btn.BackgroundColor3 = config[configKey] and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(150, 0, 0)
+    end)
+end
+
+createToggleButton("Aimbot", 40, "aimbot")
+createToggleButton("Silent Aim", 80, "silentAim")
+createToggleButton("ESP", 120, "esp")
+createToggleButton("Wallhack", 160, "wallhack")
+
+-- Přepínání menu klávesou Insert
+UserInputService.InputBegan:Connect(function(input)
+    if input.KeyCode == config.menuKey then
+        MainFrame.Visible = not MainFrame.Visible
+    end
+end)
+
+-- HLAVNÍ LOOP
 RunService.RenderStepped:Connect(function()
-    -- AIMBOT & SOFT AIM (Kombinované pro stabilitu)
+    -- Aktualizace FOV kruhu
+    FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    FOVCircle.Radius = config.aimbotFOV
+    FOVCircle.Visible = config.aimbot
+
+    -- AIMBOT
     if config.aimbot then
-        local target = getClosestPlayer()
+        local target = getClosestPlayer(config.aimbotFOV)
         if target then
-            local targetCFrame = CFrame.lookAt(Camera.CFrame.Position, target.Position)
-            Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, config.smoothness)
+            Camera.CFrame = Camera.CFrame:Lerp(CFrame.lookAt(Camera.CFrame.Position, target.Position), config.smoothness)
         end
     end
 
-    -- ESP & WALLHACK
+    -- SILENT AIM (Upravuje směr střelby/pohledu bez plynulosti)
+    if config.silentAim and not config.aimbot then -- Silent Aim běží, když není aktivní hlavní aimbot
+        local target = getClosestPlayer(config.silentAimFOV)
+        if target then
+            Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, target.Position)
+        end
+    end
+
+    -- ESP & WALLHACK VIZUÁLY
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character then
-            -- Wallhack (Průhlednost)
-            if config.wallhack then
-                for _, part in pairs(player.Character:GetChildren()) do
-                    if part:IsA("BasePart") then
-                        part.CanCollide = false
-                        part.Transparency = 0.5
-                    end
-                end
-            end
-
-            -- Jednoduchý ESP Box
+            -- ESP
+            local espBox = player.Character:FindFirstChild("ESP_Box")
             if config.esp then
-                if not player.Character:FindFirstChild("ESP_Box") then
+                if not espBox then
                     local box = Instance.new("BoxHandleAdornment")
                     box.Name = "ESP_Box"
                     box.AlwaysOnTop = true
-                    box.ZIndex = 5
                     box.Adornee = player.Character
-                    box.Color3 = Color3.fromRGB(255, 0, 0)
+                    box.Color3 = Color3.new(1, 0, 0)
                     box.Size = player.Character:GetExtentsSize()
                     box.Transparency = 0.7
                     box.Parent = player.Character
+                end
+            elseif espBox then
+                espBox:Destroy()
+            end
+            
+            -- Wallhack (pouze vizuální průhlednost, aby se nepropadalo)
+            if config.wallhack then
+                for _, part in pairs(player.Character:GetChildren()) do
+                    if part:IsA("BasePart") then part.Transparency = 0.6 end
                 end
             end
         end
     end
 end)
 
-print("Script úspěšně načten!")
+print("Cheat Menu aktivováno! Stiskni 'Insert' pro ovládání.")
