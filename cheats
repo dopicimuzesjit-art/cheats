@@ -1,39 +1,68 @@
--- (Knihovna Rayfield zůstává stejná)
--- ... (zde vlož zbytek Rayfield kódu)
+-- VYČIŠTĚNÍ
+if getgenv().Rayfield then getgenv().Rayfield:Destroy() end
 
--- Přidej tuto funkci pro "Silent" zásah
-local function getBestTarget()
-    local best = nil
-    local dist = config.fov
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") then
-            -- Team check
-            if config.teamCheck and p.Team == LocalPlayer.Team then continue end
-            
-            local pos, onScreen = Camera:WorldToViewportPoint(p.Character.Head.Position)
+-- NAČTENÍ KNIHOVNY
+local success, Rayfield = pcall(function() 
+    return loadstring(game:HttpGet('https://sirius.menu/rayfield'))() 
+end)
+
+if not success then return warn("Chyba při načítání knihovny!") end
+
+local Window = Rayfield:CreateWindow({Name = "PREMIUM RIVALS - STABLE", LoadingTitle = "Loading...", LoadingSubtitle = "by Gemini"})
+
+-- CONFIG
+local config = { aimbot = false, esp = false, fov = 150, smoothness = 0.1 }
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
+
+-- FUNKCE PRO HLEDÁNÍ CÍLE (Bezpečnější)
+local function getClosestPlayer()
+    local closest = nil
+    local shortestDistance = config.fov
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= Players.LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local pos, onScreen = Camera:WorldToViewportPoint(player.Character.HumanoidRootPart.Position)
             if onScreen then
-                local d = (Vector2.new(pos.X, pos.Y) - Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)).Magnitude
-                if d < dist then
-                    best = p.Character.Head
-                    dist = d
-                end
+                local distance = (Vector2.new(pos.X, pos.Y) - Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)).Magnitude
+                if distance < shortestDistance then closest = player.Character.HumanoidRootPart shortestDistance = distance end
             end
         end
     end
-    return best
+    return closest
 end
 
--- Hook na střelbu (to, co dělá ty hity i mimo postavu)
-local old; old = hookmetamethod(game, "__namecall", function(self, ...)
-    local method = getnamecallmethod()
-    local args = {...}
-    
-    if config.silentAim and (method == "FindPartOnRay" or method == "FindPartOnRayWithIgnoreList") then
-        local target = getBestTarget()
+-- MENU
+local MainTab = Window:CreateTab("Main", 4483362458)
+MainTab:CreateToggle({Name = "Aimbot", Callback = function(v) config.aimbot = v end})
+MainTab:CreateToggle({Name = "ESP", Callback = function(v) config.esp = v end})
+MainTab:CreateSlider({Name = "FOV", Range = {50, 500}, CurrentValue = 150, Callback = function(v) config.fov = v end})
+
+-- SMYČKA (Logika)
+RunService.RenderStepped:Connect(function()
+    if config.aimbot then
+        local target = getClosestPlayer()
         if target then
-            args[1] = Ray.new(args[1].Origin, (target.Position - args[1].Origin).Unit * 500)
-            return old(self, unpack(args))
+            Camera.CFrame = Camera.CFrame:Lerp(CFrame.lookAt(Camera.CFrame.Position, target.Position), config.smoothness)
         end
     end
-    return old(self, ...)
+    
+    for _, player in pairs(Players:GetPlayers()) do
+        if player.Character then
+            local box = player.Character:FindFirstChild("ESP_Box")
+            if config.esp and not box then
+                local b = Instance.new("BoxHandleAdornment")
+                b.Name = "ESP_Box"
+                b.AlwaysOnTop = true
+                b.Adornee = player.Character
+                b.Color3 = Color3.new(1, 0, 0)
+                b.Size = player.Character:GetExtentsSize()
+                b.Parent = player.Character
+            elseif not config.esp and box then
+                box:Destroy()
+            end
+        end
+    end
 end)
+
+Rayfield:Notify({Title = "Systém", Content = "Script běží stabilně.", Duration = 3})
