@@ -1,113 +1,39 @@
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+-- (Knihovna Rayfield zůstává stejná)
+-- ... (zde vlož zbytek Rayfield kódu)
 
-local Window = Rayfield:CreateWindow({
-   Name = "PREMIUM CHEAT MENU",
-   LoadingTitle = "Načítání...",
-   LoadingSubtitle = "by Gemini",
-})
-
--- CONFIG
-local config = {
-    aimbot = false,
-    silentAim = false,
-    esp = false,
-    smoothness = 0.01,
-    fov = 150,
-    teamCheck = true
-}
-
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-local LocalPlayer = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
-local FOVCircle = Drawing.new("Circle")
-
--- FUNKCE PRO PANIC BUTTON
-local function panicMode()
-    Rayfield:Destroy() -- Zničí GUI
-    FOVCircle:Remove() -- Smaže FOV kruh
-    -- Zastavení všech smyček (využitím globální proměnné)
-    getgenv().scriptRunning = false 
+-- Přidej tuto funkci pro "Silent" zásah
+local function getBestTarget()
+    local best = nil
+    local dist = config.fov
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") then
+            -- Team check
+            if config.teamCheck and p.Team == LocalPlayer.Team then continue end
+            
+            local pos, onScreen = Camera:WorldToViewportPoint(p.Character.Head.Position)
+            if onScreen then
+                local d = (Vector2.new(pos.X, pos.Y) - Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)).Magnitude
+                if d < dist then
+                    best = p.Character.Head
+                    dist = d
+                end
+            end
+        end
+    end
+    return best
 end
 
-getgenv().scriptRunning = true -- Globální přepínač pro běh scriptu
-
--- ZÁLOŽKY
-local MainTab = Window:CreateTab("Main", 4483362458)
-local VisualsTab = Window:CreateTab("Visuals", 4483345998)
-local SettingsTab = Window:CreateTab("Settings", 4483362458)
-
--- MAIN TAB
-MainTab:CreateToggle({ Name = "Aimbot", Callback = function(V) config.aimbot = V end })
-MainTab:CreateToggle({ Name = "Silent Aim", Callback = function(V) config.silentAim = V end })
-MainTab:CreateSlider({ Name = "Smoothness", Range = {0.01, 1}, Increment = 0.01, CurrentValue = 0.01, Callback = function(V) config.smoothness = V end })
-MainTab:CreateSlider({ Name = "FOV Size", Range = {10, 800}, Increment = 10, CurrentValue = 150, Callback = function(V) config.fov = V end })
-
--- VISUALS TAB
-VisualsTab:CreateToggle({ Name = "ESP Boxes", Callback = function(V) config.esp = V end })
-VisualsTab:CreateToggle({ Name = "Team Check", CurrentValue = true, Callback = function(V) config.teamCheck = V end })
-
--- SETTINGS TAB (ZDE JE PANIC BUTTON)
-SettingsTab:CreateButton({
-    Name = "PANIC BUTTON (Uninject)",
-    Callback = function() panicMode() end,
-})
-
--- HLAVNÍ LOOP
-RunService.RenderStepped:Connect(function()
-    if not getgenv().scriptRunning then return end -- Pokud je panic, nic se neděje
-
-    -- FOV Kruh
-    FOVCircle.Visible = config.aimbot or config.silentAim
-    FOVCircle.Radius = config.fov
-    FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-
-    local target = nil
-    local shortestDistance = config.fov
-
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            if config.teamCheck and player.Team == LocalPlayer.Team then continue end
-            
-            local pos, onScreen = Camera:WorldToViewportPoint(player.Character.HumanoidRootPart.Position)
-            if onScreen then
-                local distance = (Vector2.new(pos.X, pos.Y) - Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)).Magnitude
-                if distance < shortestDistance then
-                    target = player.Character.HumanoidRootPart
-                    shortestDistance = distance
-                end
-            end
+-- Hook na střelbu (to, co dělá ty hity i mimo postavu)
+local old; old = hookmetamethod(game, "__namecall", function(self, ...)
+    local method = getnamecallmethod()
+    local args = {...}
+    
+    if config.silentAim and (method == "FindPartOnRay" or method == "FindPartOnRayWithIgnoreList") then
+        local target = getBestTarget()
+        if target then
+            args[1] = Ray.new(args[1].Origin, (target.Position - args[1].Origin).Unit * 500)
+            return old(self, unpack(args))
         end
     end
-
-    if target then
-        if config.aimbot then
-            Camera.CFrame = Camera.CFrame:Lerp(CFrame.lookAt(Camera.CFrame.Position, target.Position), config.smoothness)
-        end
-        if config.silentAim and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
-            Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, target.Position)
-        end
-    end
-
-    -- ESP ČIŠTĚNÍ
-    for _, player in pairs(Players:GetPlayers()) do
-        if player.Character then
-            local box = player.Character:FindFirstChild("ESP_Box")
-            if config.esp then
-                if not box then
-                    local b = Instance.new("BoxHandleAdornment")
-                    b.Name = "ESP_Box"
-                    b.AlwaysOnTop = true
-                    b.Adornee = player.Character
-                    b.Color3 = Color3.new(1, 0, 0)
-                    b.Size = player.Character:GetExtentsSize()
-                    b.Transparency = 0.7
-                    b.Parent = player.Character
-                end
-            elseif box then
-                box:Destroy()
-            end
-        end
-    end
+    return old(self, ...)
 end)
