@@ -1,0 +1,9 @@
+
+local lp = game.Players.LocalPlayer
+if lp.Character and lp.Character:FindFirstChild("Gun") then
+    lp.Character.Gun.Spread.Value = 0
+    lp.Character.Gun.Recoil.Value = Vector3.new(0,0,0)
+    print("Modifikace aplikována!")
+else
+    warn("Zbraň nebyla nalezena, musíš ji držet v ruce!")
+end
