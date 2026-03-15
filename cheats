@@ -1,90 +1,70 @@
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+local Library = loadstring(game:HttpGet('https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/Library.lua'))()
+local ThemeManager = loadstring(game:HttpGet('https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/addons/ThemeManager.lua'))()
+local SaveManager = loadstring(game:HttpGet('https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/addons/SaveManager.lua'))()
 
-local Window = Rayfield:CreateWindow({
-   Name = "PREMIUM RIVALS | ALL-IN-ONE",
-   LoadingTitle = "Initializing...",
-   LoadingSubtitle = "by Gemini",
+local Window = Library:CreateWindow({
+    Title = 'PREMIUM RIVALS | LINORIA',
+    Center = true,
+    AutoShow = true,
 })
 
--- GLOBÁLNÍ KONFIGURACE
-local config = {
-   aimbot = false,
-   silentAim = false,
-   esp = false,
-   noRecoil = false,
-   noSpread = false,
-   teamCheck = true,
-   fov = 150
+-- TABY
+local Tabs = {
+    Main = Window:AddTab('Combat'),
+    Visuals = Window:AddTab('Visuals'),
+    Settings = Window:AddTab('Settings')
 }
 
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-local LocalPlayer = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
-local FOVCircle = Drawing.new("Circle")
-FOVCircle.Visible = false; FOVCircle.Filled = false; FOVCircle.Thickness = 1; FOVCircle.Color = Color3.fromRGB(255, 255, 255)
+-- COMBAT TAB
+local CombatGroup = Tabs.Main:AddLeftGroupbox('Gun Mods')
+CombatGroup:AddToggle('SilentAim', { Text = 'Silent Aim' }):AddKeyPicker('SilentAimKey', { Default = 'Z', Text = 'Silent Aim' })
+CombatGroup:AddToggle('NoRecoil', { Text = 'No Recoil' })
+CombatGroup:AddToggle('NoSpread', { Text = 'No Spread' })
+Tabs.Main:AddSlider('FOVSize', { Text = 'FOV Size', Min = 10, Max = 500, Default = 150 })
 
--- ### HOOKY A FUNKCE ###
-local mt = getrawmetatable(game)
-local old = mt.__namecall
-setreadonly(mt, false)
-mt.__namecall = newcclosure(function(self, ...)
-    local method = getnamecallmethod()
-    local args = {...}
-    if config.silentAim and (method == "FindPartOnRay" or method == "FindPartOnRayWithIgnoreList") then
-        -- Logic: Najde nejbližší hlavu v rámci FOV
-        -- (Zde je místo pro implementaci cílení)
-    end
-    return old(self, unpack(args))
-end)
-setreadonly(mt, true)
+-- VISUALS TAB
+local VisualsGroup = Tabs.Visuals:AddLeftGroupbox('ESP')
+VisualsGroup:AddToggle('ESP', { Text = 'Enable ESP' }):AddColorPicker('ESPColor', { Default = Color3.fromRGB(255, 0, 0) })
 
--- ### MENU STRUKTURA ###
-local CombatTab = Window:CreateTab("Combat", 4483362458)
-local VisualsTab = Window:CreateTab("Visuals", 4483345998)
-local MiscTab = Window:CreateTab("Misc", 4483362458)
+-- SETTINGS TAB
+local SettingsGroup = Tabs.Settings:AddLeftGroupbox('Menu')
+SettingsGroup:AddButton('Unload Menu', function() Library:Unload() end)
 
--- COMBAT
-CombatTab:CreateToggle({ Name = "Silent Aim", Callback = function(V) config.silentAim = V end })
-CombatTab:CreateToggle({ Name = "No Recoil", Callback = function(V) config.noRecoil = V end })
-CombatTab:CreateToggle({ Name = "No Spread", Callback = function(V) config.noSpread = V end })
-CombatTab:CreateSlider({ Name = "FOV Size", Range = {10, 500}, CurrentValue = 150, Callback = function(V) config.fov = V end })
-CombatTab:CreateToggle({ Name = "Team Check", CurrentValue = true, Callback = function(V) config.teamCheck = V end })
+-- INITIALIZACE
+ThemeManager:SetLibrary(Library)
+SaveManager:SetLibrary(Library)
+SaveManager:IgnoreThemeSettings()
+SaveManager:SetIgnoreIndexes({ 'SilentAimKey' })
+SaveManager:SetFolder('RivalsPremium')
+SaveManager:BuildConfigSection(Tabs.Settings)
+ThemeManager:ApplyToTab(Tabs.Settings)
 
--- VISUALS
-VisualsTab:CreateToggle({ Name = "ESP Boxes", Callback = function(V) config.esp = V end })
-
--- MISC
-MiscTab:CreateButton({ Name = "Panic Button (Unload)", Callback = function() Rayfield:Destroy() end })
-
--- ### HLAVNÍ SMYČKA ###
-RunService.RenderStepped:Connect(function()
-    -- Update FOV kruhu
-    FOVCircle.Visible = config.silentAim
-    FOVCircle.Radius = config.fov
-    FOVCircle.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
-
-    -- Aplikace Gun Mods
-    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Gun") then
-        local gun = LocalPlayer.Character.Gun
-        if config.noRecoil and gun:FindFirstChild("Recoil") then gun.Recoil.Value = Vector3.new(0,0,0) end
-        if config.noSpread and gun:FindFirstChild("Spread") then gun.Spread.Value = 0 end
+-- LOGIKA
+game:GetService('RunService').RenderStepped:Connect(function()
+    local localPlayer = game.Players.LocalPlayer
+    
+    -- Gun Mods
+    if localPlayer.Character and localPlayer.Character:FindFirstChild('Gun') then
+        local gun = localPlayer.Character.Gun
+        if Toggles.NoRecoil.Value and gun:FindFirstChild('Recoil') then gun.Recoil.Value = Vector3.new(0, 0, 0) end
+        if Toggles.NoSpread.Value and gun:FindFirstChild('Spread') then gun.Spread.Value = 0 end
     end
 
-    -- Update ESP
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character then
-            local highlight = player.Character:FindFirstChild("ESP_Highlight")
-            if config.esp then
+    -- ESP Logic
+    for _, player in pairs(game.Players:GetPlayers()) do
+        if player ~= localPlayer and player.Character then
+            local highlight = player.Character:FindFirstChild('ESP_Highlight')
+            if Toggles.ESP.Value then
                 if not highlight then
-                    highlight = Instance.new("Highlight", player.Character)
-                    highlight.Name = "ESP_Highlight"
-                    highlight.FillColor = Color3.fromRGB(255, 0, 0)
+                    highlight = Instance.new('Highlight', player.Character)
+                    highlight.Name = 'ESP_Highlight'
                 end
-            elseif highlight then highlight:Destroy() end
+                highlight.FillColor = Options.ESPColor.Value
+            elseif highlight then 
+                highlight:Destroy() 
+            end
         end
     end
 end)
 
-Rayfield:Notify({Title = "Success", Content = "Menu loaded successfully.", Duration = 3})
+Library:Notify('Menu načteno! Klávesy najdeš v nastavení.')
